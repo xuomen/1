@@ -59,19 +59,19 @@ cpu_level=$(awk '
 
 case $cpu_level in
     1)
-        echo "CPU supports x86-64-v1"
+        echo "1"
         kernel_package="linux-xanmod-x64v1"
         ;;
     2)
-        echo "CPU supports x86-64-v2"
+        echo "2"
         kernel_package="linux-xanmod-x64v2"
         ;;
     3)
-        echo "CPU supports x86-64-v3"
+        echo "3"
         kernel_package="linux-xanmod-x64v3"
         ;;
     4)
-        echo "CPU supports x86-64-v4"
+        echo "4"
         kernel_package="linux-xanmod-x64v4"
         ;;
     *)
