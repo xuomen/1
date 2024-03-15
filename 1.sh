@@ -1,7 +1,7 @@
 #!/bin/expect -f -
 
 # 设置sudo密码
-set password "your_sudo_password"
+set password "Qq@67564726"
 
 # 检查sudo是否已安装，如果没有则安装sudo
 if {[catch {exec sudo -n true}]} {
