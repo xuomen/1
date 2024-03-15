@@ -6,17 +6,20 @@ set password "Qq@67564726"
 # 检查sudo是否已安装，如果没有则安装sudo
 if {[catch {exec sudo -n true}]} {
     puts "sudo 未安装，正在安装..."
-    spawn apt update && apt install -y sudo
-    expect "press Enter to continue or Ctrl+C to cancel adding it" { send "\r" }
-    expect eof
+    spawn bash -c "apt update && apt install -y sudo"
+    expect {
+        "press Enter to continue or Ctrl+C to cancel adding it" { send "\r"; exp_continue }
+        eof
+    }
 }
 
 # 设置dpkg选项以自动处理配置文件的冲突
-spawn dpkg --configure -a
+spawn bash -c "dpkg --configure -a"
 expect eof
 
 spawn sudo debconf-set-selections <<< 'debconf debconf/frontend select Noninteractive'
 expect eof
+
 spawn sudo debconf-set-selections <<< 'libc6 libraries/restart-without-asking boolean true'
 expect eof
 
@@ -26,7 +29,7 @@ if {[string length $journald_storage] > 0} {
     spawn sudo sed -i 's/^Storage=.*/Storage=none/' /etc/systemd/journald.conf
     expect eof
 } else {
-    spawn sudo sh -c "echo 'Storage=none' >> /etc/systemd/journald.conf"
+    spawn sudo sh -c {echo 'Storage=none' >> /etc/systemd/journald.conf}
     expect eof
 }
 spawn sudo systemctl restart systemd-journald
@@ -37,18 +40,22 @@ spawn sudo debconf-set-selections <<< 'sshd_config select install the package ma
 expect eof
 
 # 设置debconf选项，写入新的源到sources.list文件
-spawn sudo sh -c "echo -e 'deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware' > /etc/apt/sources.list"
+spawn sudo sh -c {echo -e 'deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware' > /etc/apt/sources.list}
 expect eof
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
-spawn sudo apt update && sudo apt install -y wget gnupg
+spawn bash -c {apt update && apt install -y wget gnupg}
 expect eof
+
 spawn wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
 expect eof
-spawn sudo sh -c "echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' > /etc/apt/sources.list.d/xanmod-release.list"
+
+spawn sudo sh -c {echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' > /etc/apt/sources.list.d/xanmod-release.list}
 expect eof
+
 spawn sudo apt update
 expect eof
+
 spawn sudo apt install -y linux-xanmod-x64v
 expect eof
 
@@ -69,7 +76,7 @@ spawn sudo timedatectl set-timezone Asia/Shanghai
 expect eof
 
 # 清空motd文件
-spawn sudo sh -c "echo '' > /etc/motd"
+spawn sudo sh -c {echo '' > /etc/motd}
 expect eof
 
 # 完成所有更新、升级和配置任务后将标志文件设置为已重启
@@ -81,38 +88,51 @@ if {[file exists "/var/tmp/rebooted.flag"]} {
     # 重启tuned服务并设置其开机自启
     spawn sudo systemctl start tuned.service
     expect eof
+
     spawn sudo systemctl enable tuned.service
     expect eof
+
     spawn sudo tuned-adm profile realtime-virtual-guest
     expect eof
     
     # 清理系统
     spawn sudo apt-get autoclean
     expect eof
+
     spawn sudo apt-get clean
     expect eof
+
     spawn sudo apt-get autoremove
     expect eof
+
     spawn sudo apt autoremove
     expect eof
+
     spawn sudo apt autoclean
     expect eof
+
     spawn sudo find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +
     expect eof
+
     spawn sudo apt autoremove --purge
     expect eof
+
     spawn sudo apt clean
     expect eof
+
     spawn sudo apt autoclean
     expect eof
+
     spawn sudo apt remove --purge $(dpkg -l | awk '/^rc/ {print $2}')
     expect eof
     
     # 旋转并清理journalctl日志
     spawn sudo journalctl --rotate
     expect eof
+
     spawn sudo journalctl --vacuum-time=1s
     expect eof
+
     spawn sudo journalctl --vacuum-size=50M
     expect eof
     
@@ -123,6 +143,7 @@ if {[file exists "/var/tmp/rebooted.flag"]} {
     # 清理无用的软件包
     spawn sudo dpkg -l | grep ^rc | awk '{print $2}' | sudo xargs dpkg -P
     expect eof
+
     spawn sudo dpkg -l | grep "^rc" | awk '{print $2}' | xargs sudo aptitude -y purge
     expect eof
     
