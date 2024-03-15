@@ -41,7 +41,7 @@ echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src ht
 echo -e "Y\n" | apt update -y
 
 # 添加您提供的步骤：下载 XanMod 的密钥并设置软件源
-wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
+sudo wget -qO - https://dl.xanmod.org/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
 echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
@@ -138,6 +138,9 @@ if [ -f "$REBOOT_FLAG" ]; then
     
     # 更新grub
     sudo update-grub
+
+    # 重启系统
+    reboot
 fi
 
 # 删除标志文件，以便下次脚本运行时可以再次进行重启后的任务
