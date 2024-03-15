@@ -110,7 +110,7 @@ spawn sudo apt install -y expect
 expect {
     "OK" { send "OK\r" }
     "yes" { send "yes\r" }
-    "press q to quit" { send "q\r" }
+    "press q to quit)" { send "q\r" }
     default { send "Y\r" }
 }
 expect eof
