@@ -3,14 +3,15 @@
 # 设置DEBIAN_FRONTEND环境变量，以便自动选择 "Yes"
 export DEBIAN_FRONTEND=noninteractive
 export DEBIAN_PRIORITY=critical
-echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+
+
 # 定义一个标志文件，用于记录系统是否已重启
 REBOOT_FLAG="/var/tmp/rebooted.flag"
 
 # 检查sudo是否已安装，如果没有则安装sudo
 if ! command -v sudo &> /dev/null; then
     echo "sudo 未安装，正在安装..."
-    apt update -y && apt install -y -y sudo
+    apt update -y && apt install -y sudo
 fi
 
 # 确保脚本以root用户执行，如果不是，则使用sudo提升权限
@@ -22,7 +23,10 @@ fi
 
 # 设置dpkg选项以自动处理配置文件的冲突
 export DPKG_OPTIONS='--force-confnew'
-
+export DEBIAN_FRONTEND=noninteractive
+export DEBIAN_PRIORITY=critical
+echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+echo 'libc6 libraries/restart-without-asking boolean true' | sudo debconf-set-selections
 # 配置systemd journald服务
 if grep -q "^Storage=" /etc/systemd/journald.conf; then
     sudo sed -i 's/^Storage=.*/Storage=none/' /etc/systemd/journald.conf
@@ -38,7 +42,7 @@ echo "sshd_config select install the package maintainer's version" | sudo debcon
 echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
-echo -e "Y\n" | apt update -y && echo -e "Y\n" | apt install -y -y wget gnupg && wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes && echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list && sudo apt update && sudo apt install -y linux-xanmod-x64vsudo apt install -y linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1 && if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1 && if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2 && if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3 && if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4 && if (level > 0) { print level && exit level + 1 } exit 1 }') -y && reboot
+echo -e "Y\n" | apt update -y && echo -e "Y\n" | apt install -y wget gnupg && wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes && echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list && sudo apt update && sudo apt install -y linux-xanmod-x64vsudo apt install -y linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1 && if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1 && if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2 && if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3 && if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4 && if (level > 0) { print level && exit level + 1 } exit 1 }') -y && reboot
 
 
 # 升级所有已安装的软件包
@@ -48,7 +52,7 @@ echo -e "Y\n" | sudo apt upgrade -y
 echo -e "Y\n" | sudo apt full-upgrade -y
 
 # 安装必要的软件包
-apt install -y -y curl wget bash tuned ncdu
+apt install -y curl wget bash tuned ncdu
 
 # 设置时区
 timedatectl set-timezone Asia/Shanghai
