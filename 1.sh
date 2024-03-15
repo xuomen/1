@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 设置DEBIAN_FRONTEND环境变量，以便自动选择 "Yes"
+export DEBIAN_FRONTEND=noninteractive
+
 # 检查sudo是否已安装，如果没有则安装sudo
 if ! command -v sudo &> /dev/null; then
     echo "sudo 未安装，正在安装..."
@@ -13,24 +16,31 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 0
 fi
 
-# 设置debconf前端为noninteractive，避免交互式提问
-export DEBIAN_FRONTEND=noninteractive
-
 # 设置dpkg选项以自动处理配置文件的冲突
 export DPKG_OPTIONS='--force-confnew'
 
-# 预先设置debconf选项，以便自动安装维护者提供的sshd_config版本
-echo 'sshd_config select install the package maintainer\'s version' | debconf-set-selections
+# 配置systemd journald服务
+if grep -q "^Storage=" /etc/systemd/journald.conf; then
+    sudo sed -i 's/^Storage=.*/Storage=none/' /etc/systemd/journald.conf
+else
+    echo "Storage=none" | sudo tee -a /etc/systemd/journald.conf > /dev/null
+fi
+sudo systemctl restart systemd-journald
 
-# 清空sources.list文件并写入新的源
-echo "deb http://ftp.debian.org/debian sid main non-free-firmware
-deb-src http://ftp.debian.org/debian sid main non-free-firmware" | tee /etc/apt/sources.list > /dev/null
+# 设置sshd_config选项，以自动安装维护者提供的sshd_config版本
+echo "sshd_config select install the package maintainer's version" | sudo debconf-set-selections
+
+# 设置debconf选项，写入新的源到sources.list文件
+echo "deb http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
 
 # 更新软件包列表
 apt update -y
 
 # 升级所有已安装的软件包
 apt upgrade -y
+
+# 自动同意所有交互式提示
+echo -e "Y\n" | sudo apt-get upgrade -y
 
 # 执行发行版升级
 apt full-upgrade -y
@@ -47,15 +57,7 @@ apt install -y curl wget bash
 # 设置时区
 timedatectl set-timezone Asia/Shanghai
 
-# 配置systemd journald服务
-if grep -q "^Storage=" /etc/systemd/journald.conf; then
-    sudo sed -i 's/^Storage=.*/Storage=none/' /etc/systemd/journald.conf
-else
-    echo "Storage=none" | sudo tee -a /etc/systemd/journald.conf > /dev/null
-fi
-sudo systemctl restart systemd-journald
-
 # 清空motd文件
-echo "" > /etc/motd
+echo "" | sudo tee /etc/motd > /dev/null
 
 echo "所有更新、升级和配置任务已完成。"
