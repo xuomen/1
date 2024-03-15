@@ -35,14 +35,13 @@ echo "sshd_config select install the package maintainer's version" | sudo debcon
 echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
-echo -e "Y\n" | apt update -y && echo -e "Y\n" | apt install -y wget gnupg && wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes && echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list && sudo apt update && sudo apt install -y linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1 && if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1 && if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2 && if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3 && if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4 && if (level > 0) { print level && exit level + 1 } exit 1 }') -y
-
+echo -e "Y\n" | apt update && apt install -y wget gnupg && wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes && echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list && sudo apt update && sudo apt install -y linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1 && if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1 && if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2 && if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3 && if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4 && if (level > 0) { print level && exit level + 1 } exit 1 }')
 
 # 升级所有已安装的软件包
-echo -e "Y\n" | sudo apt upgrade -y
+echo -e "Y\n" | sudo apt upgrade
 
 # 执行发行版升级
-echo -e "Y\n" | sudo apt full-upgrade -y
+echo -e "Y\n" | sudo apt full-upgrade
 
 # 安装必要的软件包
 apt install -y curl wget bash tuned ncdu
@@ -67,16 +66,16 @@ if [ -f "$REBOOT_FLAG" ]; then
     sudo tuned-adm profile realtime-virtual-guest
     
     # 清理系统
-    apt-get autoclean -y
-    apt-get clean -y
-    apt-get autoremove -y
-    apt autoremove -y
-    apt autoclean -y
+    apt-get autoclean
+    apt-get clean
+    apt-get autoremove
+    apt autoremove
+    apt autoclean
     find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +
-    apt autoremove --purge -y
+    apt autoremove --purge
     apt clean
     apt autoclean
-    apt remove --purge -y $(dpkg -l | awk '/^rc/ {print $2}')
+    apt remove --purge $(dpkg -l | awk '/^rc/ {print $2}')
     
     # 旋转并清理journalctl日志
     sudo journalctl --rotate
@@ -84,7 +83,7 @@ if [ -f "$REBOOT_FLAG" ]; then
     sudo journalctl --vacuum-size=50M
     
     # 删除非当前内核版本的内核镜像和头文件
-    sudo apt remove --purge -y $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs)
+    sudo apt remove --purge $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs)
     
     # 清理无用的软件包
     dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P
