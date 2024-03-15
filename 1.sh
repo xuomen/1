@@ -1,107 +1,154 @@
-#!/bin/bash
-REBOOT_FLAG="/var/tmp/rebooted.flag"
+#!/usr/bin/expect -f
 
 # 检查sudo是否已安装，如果没有则安装sudo
-if ! command -v sudo &> /dev/null; then
-    echo "sudo 未安装，正在安装..."
-    apt update -y && apt install -y sudo
-fi
+if {[catch {exec sudo -n true}]} {
+    puts "sudo 未安装，正在安装..."
+    spawn apt update && apt install -y sudo
+    expect "press Enter to continue or Ctrl+C to cancel adding it" { send "\r" }
+    expect eof
+}
 
 # 确保脚本以root用户执行，如果不是，则使用sudo提升权限
-if [ "$(id -u)" -ne 0 ]; then
-    echo "正在以root用户身份执行脚本..."
-    sudo -E "$0" "$@"
+if {![catch {exec sudo -n true}]} {
+    puts "正在以root用户身份执行脚本..."
+} else {
+    spawn sudo -E "$argv0" "$@"
+    expect "password" { send "$env(SUDO_PASSWORD)\r" }
+    expect eof
     exit 0
-fi
+}
 
 # 设置dpkg选项以自动处理配置文件的冲突
-export DPKG_OPTIONS='--force-confnew'
-export DEBIAN_FRONTEND=noninteractive
-export DEBIAN_PRIORITY=critical
-echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
-echo 'libc6 libraries/restart-without-asking boolean true' | sudo debconf-set-selections
+spawn dpkg --configure -a
+expect eof
+
+spawn sudo debconf-set-selections <<< 'debconf debconf/frontend select Noninteractive'
+expect eof
+spawn sudo debconf-set-selections <<< 'libc6 libraries/restart-without-asking boolean true'
+expect eof
+
 # 配置systemd journald服务
-if grep -q "^Storage=" /etc/systemd/journald.conf; then
-    sudo sed -i 's/^Storage=.*/Storage=none/' /etc/systemd/journald.conf
-else
-    echo "Storage=none" | sudo tee -a /etc/systemd/journald.conf > /dev/null
-fi
-sudo systemctl restart systemd-journald
+set journald_storage [exec grep "^Storage=" /etc/systemd/journald.conf]
+if {[string length $journald_storage] > 0} {
+    spawn sudo sed -i 's/^Storage=.*/Storage=none/' /etc/systemd/journald.conf
+    expect eof
+} else {
+    spawn sudo sh -c "echo 'Storage=none' >> /etc/systemd/journald.conf"
+    expect eof
+}
+spawn sudo systemctl restart systemd-journald
+expect eof
 
 # 设置sshd_config选项，以自动安装维护者提供的sshd_config版本
-echo "sshd_config select install the package maintainer's version" | sudo debconf-set-selections
+spawn sudo debconf-set-selections <<< 'sshd_config select install the package maintainer'"'"'s version'
+expect eof
 
 # 设置debconf选项，写入新的源到sources.list文件
-echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
+spawn sudo sh -c "echo -e 'deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware' > /etc/apt/sources.list"
+expect eof
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
-echo -e "Y\n" | apt update && apt install -y wget gnupg && wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes && echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list && sudo apt update && sudo apt install -y linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1 && if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1 && if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2 && if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3 && if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4 && if (level > 0) { print level && exit level + 1 } exit 1 }')
+spawn sudo apt update && sudo apt install -y wget gnupg
+expect eof
+spawn wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
+expect eof
+spawn sudo sh -c "echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' > /etc/apt/sources.list.d/xanmod-release.list"
+expect eof
+spawn sudo apt update
+expect eof
+spawn sudo apt install -y linux-xanmod-x64v
+expect eof
 
 # 升级所有已安装的软件包
-echo -e "Y\n" | sudo apt upgrade
+spawn sudo apt upgrade -y
+expect eof
 
 # 执行发行版升级
-echo -e "Y\n" | sudo apt full-upgrade
+spawn sudo apt full-upgrade -y
+expect eof
 
 # 安装必要的软件包
-apt install -y curl wget bash tuned ncdu
+spawn sudo apt install -y curl wget bash tuned ncdu
+expect eof
 
 # 设置时区
-timedatectl set-timezone Asia/Shanghai
+spawn sudo timedatectl set-timezone Asia/Shanghai
+expect eof
 
 # 清空motd文件
-echo "" | sudo tee /etc/motd > /dev/null
+spawn sudo sh -c "echo '' > /etc/motd"
+expect eof
 
 # 完成所有更新、升级和配置任务后将标志文件设置为已重启
-touch $REBOOT_FLAG
+spawn sudo touch /var/tmp/rebooted.flag
+expect eof
 
 # 如果系统已重启，则继续执行重启后的任务
-if [ -f "$REBOOT_FLAG" ]; then
-    # 在这里添加需要在重启后继续执行的任务
-    echo "正在执行重启后的任务..."
-    
+if {[file exists "/var/tmp/rebooted.flag"]} {
     # 重启tuned服务并设置其开机自启
-    sudo systemctl start tuned.service
-    sudo systemctl enable tuned.service
-    sudo tuned-adm profile realtime-virtual-guest
+    spawn sudo systemctl start tuned.service
+    expect eof
+    spawn sudo systemctl enable tuned.service
+    expect eof
+    spawn sudo tuned-adm profile realtime-virtual-guest
+    expect eof
     
     # 清理系统
-    apt-get autoclean
-    apt-get clean
-    apt-get autoremove
-    apt autoremove
-    apt autoclean
-    find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +
-    apt autoremove --purge
-    apt clean
-    apt autoclean
-    apt remove --purge $(dpkg -l | awk '/^rc/ {print $2}')
+    spawn sudo apt-get autoclean
+    expect eof
+    spawn sudo apt-get clean
+    expect eof
+    spawn sudo apt-get autoremove
+    expect eof
+    spawn sudo apt autoremove
+    expect eof
+    spawn sudo apt autoclean
+    expect eof
+    spawn sudo find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +
+    expect eof
+    spawn sudo apt autoremove --purge
+    expect eof
+    spawn sudo apt clean
+    expect eof
+    spawn sudo apt autoclean
+    expect eof
+    spawn sudo apt remove --purge $(dpkg -l | awk '/^rc/ {print $2}')
+    expect eof
     
     # 旋转并清理journalctl日志
-    sudo journalctl --rotate
-    sudo journalctl --vacuum-time=1s
-    sudo journalctl --vacuum-size=50M
+    spawn sudo journalctl --rotate
+    expect eof
+    spawn sudo journalctl --vacuum-time=1s
+    expect eof
+    spawn sudo journalctl --vacuum-size=50M
+    expect eof
     
     # 删除非当前内核版本的内核镜像和头文件
-    sudo apt remove --purge $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs)
+    spawn sudo apt remove --purge $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs)
+    expect eof
     
     # 清理无用的软件包
-    dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P
-    dpkg -l |grep "^rc"|awk '{print $2}' |xargs aptitude -y purge
-    
+    spawn sudo dpkg -l | grep ^rc | awk '{print $2}' | sudo xargs dpkg -P
+    expect eof
+    spawn sudo dpkg -l | grep "^rc" | awk '{print $2}' | xargs sudo aptitude -y purge
+    expect eof
     
     # 更新grub
-    sudo update-grub
+    spawn sudo update-grub
+    expect eof
 
     # 重启系统
-    reboot
-fi
+    spawn sudo reboot
+    expect eof
+}
 
 # 删除标志文件，以便下次脚本运行时可以再次进行重启后的任务
-rm -f $REBOOT_FLAG
+spawn sudo rm -f /var/tmp/rebooted.flag
+expect eof
 
-echo "12.5" | sudo tee -a /etc/debian_version > /dev/null
-echo -e "Debian GNU/Linux 12 \\n \\l" | sudo tee -a /etc/issue > /dev/null
-echo -e 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\nNAME="Debian GNU/Linux"\nVERSION_ID="12"\nVERSION="12 (bookworm)"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL="https://www.debian.org/"\nSUPPORT_URL="https://www.debian.org/support"\nBUG_REPORT_URL="https://bugs.debian.org/"' | sudo tee -a /etc/os-release > /dev/null
-
-echo "所有更新、升级和配置任务已完成。"
+# 更新版本信息
+spawn sudo sh -c "echo '12.5' >> /etc/debian_version"
+expect eof
+spawn sudo sh -c "echo -e 'Debian GNU/Linux 12 \\n \\l' >> /etc/issue"
+expect eof
+spawn sudo sh -c "echo -e 'PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"12\"\nVERSION=\"12 (book
