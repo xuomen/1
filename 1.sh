@@ -45,43 +45,7 @@ sudo wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/ke
 echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
-cpu_level=$(awk '
-    BEGIN {
-        while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1
-        if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1
-        if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2
-        if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3
-        if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4
-        if (level > 0) { print level; exit level + 1 }
-        exit 1
-    }
-')
-
-case $cpu_level in
-    1)
-        echo "1"
-        kernel_package="linux-xanmod-x64v1"
-        ;;
-    2)
-        echo "2"
-        kernel_package="linux-xanmod-x64v2"
-        ;;
-    3)
-        echo "3"
-        kernel_package="linux-xanmod-x64v3"
-        ;;
-    4)
-        echo "4"
-        kernel_package="linux-xanmod-x64v4"
-        ;;
-    *)
-        echo "CPU does not meet the required instruction set level"
-        exit 1
-        ;;
-esac
-
-# 安装相应的Linux内核
-sudo apt install -y "$kernel_package"
+sudo apt install linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1; if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1; if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2; if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3; if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4; if (level > 0) { print level; exit level + 1 } exit 1 }')
 
 # 升级所有已安装的软件包
 echo -e "Y\n" | sudo apt upgrade -y
