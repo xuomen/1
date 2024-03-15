@@ -3,6 +3,7 @@
 # 设置DEBIAN_FRONTEND环境变量，以便自动选择 "Yes"
 export DEBIAN_FRONTEND=noninteractive
 export DEBIAN_PRIORITY=critical
+echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
 # 定义一个标志文件，用于记录系统是否已重启
 REBOOT_FLAG="/var/tmp/rebooted.flag"
 
