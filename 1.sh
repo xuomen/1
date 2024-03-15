@@ -38,11 +38,11 @@ echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src ht
 
 
 # 更新软件包列表
-echo -e "Y\n" | apt update -y
-
+echo -e "Y\n" | sudo apt update -y
+sudo apt install -y wget gnupg
 # 添加您提供的步骤：下载 XanMod 的密钥并设置软件源
-sudo wget -qO - https://dl.xanmod.org/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
-echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
+sudo wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
+echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
 
 # 根据CPU支持的指令集级别安装相应的Linux内核
 cpu_level=$(awk '
@@ -81,13 +81,13 @@ case $cpu_level in
 esac
 
 # 安装相应的Linux内核
-apt install -y "$kernel_package"
+sudo apt install -y "$kernel_package"
 
 # 升级所有已安装的软件包
-echo -e "Y\n" | apt upgrade -y
+echo -e "Y\n" | sudo apt upgrade -y
 
 # 执行发行版升级
-echo -e "Y\n" | apt full-upgrade -y
+echo -e "Y\n" | sudo apt full-upgrade -y
 
 # 安装必要的软件包
 apt install -y curl wget bash tuned ncdu
