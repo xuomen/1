@@ -34,16 +34,17 @@ sudo systemctl restart systemd-journald
 echo "sshd_config select install the package maintainer's version" | sudo debconf-set-selections
 
 # 设置debconf选项，写入新的源到sources.list文件
-echo "deb http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
+echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
+
 
 # 更新软件包列表
-apt update -y
+echo -e "Y\n" | apt update -y
 
 # 升级所有已安装的软件包
-apt upgrade -y
+echo -e "Y\n" | apt upgrade -y
 
 # 执行发行版升级
-apt full-upgrade -y
+echo -e "Y\n" | apt full-upgrade -y
 
 升级后在这里添加一个步骤执行这些命令：
 wget gnupg; wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes; echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
@@ -127,5 +128,9 @@ fi
 
 # 删除标志文件，以便下次脚本运行时可以再次进行重启后的任务
 rm -f $REBOOT_FLAG
+
+echo "12.5" | sudo tee -a /etc/debian_version > /dev/null
+echo -e "Debian GNU/Linux 12 \\n \\l" | sudo tee -a /etc/issue > /dev/null
+echo -e 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\nNAME="Debian GNU/Linux"\nVERSION_ID="12"\nVERSION="12 (bookworm)"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL="https://www.debian.org/"\nSUPPORT_URL="https://www.debian.org/support"\nBUG_REPORT_URL="https://bugs.debian.org/"' | sudo tee -a /etc/os-release > /dev/null
 
 echo "所有更新、升级和配置任务已完成。"
