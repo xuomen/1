@@ -108,6 +108,8 @@ echo -e "Debian GNU/Linux 12 \\n \\l" | sudo tee -a /etc/issue > /dev/null
 set timeout -1
 spawn sudo apt install -y expect
 expect {
+    "OK" { send "OK\r" }
+    "yes" { send "yes\r" }
     "press q to quit" { send "q\r" }
     default { send "Y\r" }
 }
