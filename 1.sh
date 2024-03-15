@@ -38,8 +38,8 @@ echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src ht
 
 
 # 更新软件包列表
-echo -e "Y\n" | sudo apt update -y
-sudo apt install -y wget gnupg
+echo -e "Y\n" | sudo apt update
+
 # 添加您提供的步骤：下载 XanMod 的密钥并设置软件源
 sudo wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
 echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
