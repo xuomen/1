@@ -3,6 +3,9 @@
 # 设置DEBIAN_FRONTEND环境变量，以便自动选择 "Yes"
 export DEBIAN_FRONTEND=noninteractive
 
+# 定义一个标志文件，用于记录系统是否已重启
+REBOOT_FLAG="/var/tmp/rebooted.flag"
+
 # 检查sudo是否已安装，如果没有则安装sudo
 if ! command -v sudo &> /dev/null; then
     echo "sudo 未安装，正在安装..."
@@ -39,11 +42,31 @@ apt update -y
 # 升级所有已安装的软件包
 apt upgrade -y
 
-# 自动同意所有交互式提示
-echo -e "Y\n" | sudo apt-get upgrade -y
-
 # 执行发行版升级
 apt full-upgrade -y
+
+升级后在这里添加一个步骤执行这些命令：
+wget gnupg; wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes; echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
+用这个脚本判断CPU版本
+#!/usr/bin/awk -f
+
+BEGIN {
+    while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1
+    if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1
+    if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2
+    if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3
+    if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4
+    if (level > 0) { print "CPU supports x86-64-v" level; exit level + 1 }
+    exit 1
+}
+如果这段脚本输出的是“CPU supports x86-64-v1”执行
+sudo apt install linux-xanmod-x64v1 -y
+如果这段脚本输出的是“CPU supports x86-64-v2”
+sudo apt install linux-xanmod-x64v2 -y
+如果这段脚本输出的是“CPU supports x86-64-v3”
+sudo apt install linux-xanmod-x64v3 -y
+如果这段脚本输出的是“CPU supports x86-64-v4”
+sudo apt install linux-xanmod-x64v4 -y
 
 # 清理不再需要的软件包
 apt autoremove -y
@@ -52,12 +75,57 @@ apt autoremove -y
 apt clean
 
 # 安装必要的软件包
-apt install -y curl wget bash
+apt install -y curl wget bash tuned ncdu
 
 # 设置时区
 timedatectl set-timezone Asia/Shanghai
 
 # 清空motd文件
 echo "" | sudo tee /etc/motd > /dev/null
+
+# 完成所有更新、升级和配置任务后将标志文件设置为已重启
+touch $REBOOT_FLAG
+
+# 如果系统已重启，则继续执行重启后的任务
+if [ -f "$REBOOT_FLAG" ]; then
+    # 在这里添加需要在重启后继续执行的任务
+    echo "正在执行重启后的任务..."
+    
+    # 重启tuned服务并设置其开机自启
+    sudo systemctl start tuned.service
+    sudo systemctl enable tuned.service
+    sudo tuned-adm profile realtime-virtual-guest
+    
+    # 清理系统
+    apt-get autoclean -y
+    apt-get clean -y
+    apt-get autoremove -y
+    apt autoremove -y
+    apt autoclean -y
+    find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +
+    apt autoremove --purge -y
+    apt clean
+    apt autoclean
+    apt remove --purge -y $(dpkg -l | awk '/^rc/ {print $2}')
+    
+    # 旋转并清理journalctl日志
+    sudo journalctl --rotate
+    sudo journalctl --vacuum-time=1s
+    sudo journalctl --vacuum-size=50M
+    
+    # 删除非当前内核版本的内核镜像和头文件
+    sudo apt remove --purge -y $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs)
+    
+    # 清理无用的软件包
+    dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P
+    dpkg -l |grep "^rc"|awk '{print $2}' |xargs aptitude -y purge
+    
+    
+    # 更新grub
+    sudo update-grub
+fi
+
+# 删除标志文件，以便下次脚本运行时可以再次进行重启后的任务
+rm -f $REBOOT_FLAG
 
 echo "所有更新、升级和配置任务已完成。"
