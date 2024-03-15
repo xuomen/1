@@ -36,16 +36,9 @@ echo "sshd_config select install the package maintainer's version" | sudo debcon
 # 设置debconf选项，写入新的源到sources.list文件
 echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src http://ftp.debian.org/debian sid main non-free-firmware" | sudo tee /etc/apt/sources.list > /dev/null
 
-
-# 更新软件包列表
-echo -e "Y\n" | sudo apt update
-
-# 添加您提供的步骤：下载 XanMod 的密钥并设置软件源
-sudo wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes
-echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
-
 # 根据CPU支持的指令集级别安装相应的Linux内核
-sudo apt install linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1; if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1; if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2; if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3; if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4; if (level > 0) { print level; exit level + 1 } exit 1 }')
+echo -e "Y\n" | apt update -y && echo -e "Y\n" | apt install -y wget gnupg && wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /etc/apt/keyrings/xanmod-archive-keyring.gpg --yes && echo 'deb [signed-by=/etc/apt/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list && sudo apt update && sudo apt install linux-xanmod-x64vsudo apt install linux-xanmod-x64v$(awk 'BEGIN { while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1 && if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1 && if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2 && if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3 && if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4 && if (level > 0) { print level && exit level + 1 } exit 1 }') -y && reboot
+
 
 # 升级所有已安装的软件包
 echo -e "Y\n" | sudo apt upgrade -y
@@ -67,51 +60,9 @@ touch $REBOOT_FLAG
 
 # 如果系统已重启，则继续执行重启后的任务
 if [ -f "$REBOOT_FLAG" ]; then
-    # 在这里添加需要在重启后继续执行的任务
-    echo "正在执行重启后的任务..."
-    
-    # 重启tuned服务并设置其开机自启
-    sudo systemctl start tuned.service
-    sudo systemctl enable tuned.service
-    sudo tuned-adm profile realtime-virtual-guest
-    
-    # 清理系统
-    apt-get autoclean -y
-    apt-get clean -y
-    apt-get autoremove -y
-    apt autoremove -y
-    apt autoclean -y
-    find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +
-    apt autoremove --purge -y
-    apt clean
-    apt autoclean
-    apt remove --purge -y $(dpkg -l | awk '/^rc/ {print $2}')
-    
-    # 旋转并清理journalctl日志
-    sudo journalctl --rotate
-    sudo journalctl --vacuum-time=1s
-    sudo journalctl --vacuum-size=50M
-    
-    # 删除非当前内核版本的内核镜像和头文件
-    sudo apt remove --purge -y $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs)
-    
-    # 清理无用的软件包
-    dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P
-    dpkg -l |grep "^rc"|awk '{print $2}' |xargs aptitude -y purge
-    
-    
-    # 更新grub
-    sudo update-grub
-
-    # 重启系统
-    reboot
+sudo apt install -y tuned;sudo systemctl start tuned.service;sudo systemctl enable tuned.service;tuned-adm profile realtime-virtual-guest;sudo apt install ncdu; apt-get autoclean -y; apt-get clean -y; apt-get autoremove -y; apt autoremove -y; apt autoclean -y; find / -type f \( -name "*~" -o -name "*-" -o -name "*.tmp" -o -name "*.bak" -o -name "*.swp" -o -name "*.cache" -o -name "*.log" -o -name "*.old" -o -name "*.swp" \) -exec rm {} +; sudo apt autoremove --purge; sudo apt clean; sudo apt autoclean; sudo apt remove --purge $(dpkg -l | awk '/^rc/ {print $2}'); sudo journalctl --rotate; sudo journalctl --vacuum-time=1s; sudo journalctl --vacuum-size=50M; sudo apt remove --purge $(dpkg -l | awk '/^ii linux-(image|headers)-[^ ]+/{print $2}' | grep -v $(uname -r | sed 's/-.*//') | xargs); apt remove -y --purge; dpkg -l |grep ^rc|awk '{print $2}' |sudo xargs dpkg -P; dpkg -l |grep "^rc"|awk '{print $2}' |xargs aptitude -y purge; sudo apt-get autoclean -y; sudo apt-get clean -y; sudo apt-get autoremove -y; sudo apt-get purge -y $(dpkg --list | grep '^ii' | grep 'linux-image' | grep -v $(uname -r) | awk '{print $2}'); sudo update-grub; echo "" > /etc/motd; sudo ncdu /var/log; reboot
 fi
 
 # 删除标志文件，以便下次脚本运行时可以再次进行重启后的任务
 rm -f $REBOOT_FLAG
-
-echo "12.5" | sudo tee -a /etc/debian_version > /dev/null
-echo -e "Debian GNU/Linux 12 \\n \\l" | sudo tee -a /etc/issue > /dev/null
-echo -e 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\nNAME="Debian GNU/Linux"\nVERSION_ID="12"\nVERSION="12 (bookworm)"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL="https://www.debian.org/"\nSUPPORT_URL="https://www.debian.org/support"\nBUG_REPORT_URL="https://bugs.debian.org/"' | sudo tee -a /etc/os-release > /dev/null
-
-echo "所有更新、升级和配置任务已完成。"
+echo "12.5" | sudo tee -a /etc/debian_version > /dev/null ； echo -e "Debian GNU/Linux 12 \\n \\l" | sudo tee -a /etc/issue > /dev/null ； echo -e 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\nNAME="Debian GNU/Linux"\nVERSION_ID="12"\nVERSION="12 (bookworm)"\nVERSION_CODENAME=bookworm\nID=debian\nHOME_URL="https://www.debian.org/"\nSUPPORT_URL="https://www.debian.org/support"\nBUG_REPORT_URL="https://bugs.debian.org/"' | sudo tee -a /etc/os-release > /dev/null ； echo "所有更新、升级和配置任务已完成。"
