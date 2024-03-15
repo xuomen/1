@@ -40,40 +40,54 @@ echo -e "deb http://ftp.debian.org/debian sid main non-free-firmware\ndeb-src ht
 # 更新软件包列表
 echo -e "Y\n" | apt update -y
 
+# 添加您提供的步骤：下载 XanMod 的密钥并设置软件源
+wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
+echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
+
+# 根据CPU支持的指令集级别安装相应的Linux内核
+cpu_level=$(awk '
+    BEGIN {
+        while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1
+        if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1
+        if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2
+        if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3
+        if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4
+        if (level > 0) { print level; exit level + 1 }
+        exit 1
+    }
+')
+
+case $cpu_level in
+    1)
+        echo "CPU supports x86-64-v1"
+        kernel_package="linux-xanmod-x64v1"
+        ;;
+    2)
+        echo "CPU supports x86-64-v2"
+        kernel_package="linux-xanmod-x64v2"
+        ;;
+    3)
+        echo "CPU supports x86-64-v3"
+        kernel_package="linux-xanmod-x64v3"
+        ;;
+    4)
+        echo "CPU supports x86-64-v4"
+        kernel_package="linux-xanmod-x64v4"
+        ;;
+    *)
+        echo "CPU does not meet the required instruction set level"
+        exit 1
+        ;;
+esac
+
+# 安装相应的Linux内核
+apt install -y "$kernel_package"
+
 # 升级所有已安装的软件包
 echo -e "Y\n" | apt upgrade -y
 
 # 执行发行版升级
 echo -e "Y\n" | apt full-upgrade -y
-
-升级后在这里添加一个步骤执行这些命令：
-wget gnupg; wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes; echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
-用这个脚本判断CPU版本
-#!/usr/bin/awk -f
-
-BEGIN {
-    while (!/flags/) if (getline < "/proc/cpuinfo" != 1) exit 1
-    if (/lm/&&/cmov/&&/cx8/&&/fpu/&&/fxsr/&&/mmx/&&/syscall/&&/sse2/) level = 1
-    if (level == 1 && /cx16/&&/lahf/&&/popcnt/&&/sse4_1/&&/sse4_2/&&/ssse3/) level = 2
-    if (level == 2 && /avx/&&/avx2/&&/bmi1/&&/bmi2/&&/f16c/&&/fma/&&/abm/&&/movbe/&&/xsave/) level = 3
-    if (level == 3 && /avx512f/&&/avx512bw/&&/avx512cd/&&/avx512dq/&&/avx512vl/) level = 4
-    if (level > 0) { print "CPU supports x86-64-v" level; exit level + 1 }
-    exit 1
-}
-如果这段脚本输出的是“CPU supports x86-64-v1”执行
-sudo apt install linux-xanmod-x64v1 -y
-如果这段脚本输出的是“CPU supports x86-64-v2”
-sudo apt install linux-xanmod-x64v2 -y
-如果这段脚本输出的是“CPU supports x86-64-v3”
-sudo apt install linux-xanmod-x64v3 -y
-如果这段脚本输出的是“CPU supports x86-64-v4”
-sudo apt install linux-xanmod-x64v4 -y
-
-# 清理不再需要的软件包
-apt autoremove -y
-
-# 清理本地仓库
-apt clean
 
 # 安装必要的软件包
 apt install -y curl wget bash tuned ncdu
